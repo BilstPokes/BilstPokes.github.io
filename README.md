@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -27,28 +26,6 @@
         }
         .user-list-item:hover {
             transform: scale(1.02);
-        }
-        /* Style for the custom modal overlay */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 50;
-        }
-        /* Style for the custom modal box */
-        .modal-box {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
         }
     </style>
 </head>
@@ -210,11 +187,26 @@
                                     </button>
                                  </div>
                             </div>
+                            
+                            <!-- Daily Spending Limit Section -->
+                            <div class="flex flex-col space-y-2 mt-6">
+                                <h6 class="text-md font-medium text-slate-600">Daily Spending Limit</h6>
+                                <p id="current-limit-text" class="text-sm text-slate-500"></p>
+                                <input type="number" id="daily-limit-input" class="mt-1 block w-full px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Set limit ($)">
+                                <div class="flex space-x-2">
+                                     <button id="set-daily-limit-btn" class="w-1/2 py-2 px-4 bg-emerald-500 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                                        Set Limit
+                                    </button>
+                                    <button id="clear-daily-limit-btn" class="w-1/2 py-2 px-4 bg-slate-500 text-white font-semibold rounded-lg shadow-md hover:bg-slate-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">
+                                        Clear Limit
+                                    </button>
+                                </div>
+                            </div>
 
                             <!-- Change Password Form -->
                             <div class="flex flex-col space-y-2 mt-6">
                                 <h6 class="text-md font-medium text-slate-600">Change Password</h6>
-                                <input type="text" id="new-password-input" class="mt-1 block w-full px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-ring-emerald-500" placeholder="Enter new password">
+                                <input type="text" id="new-password-input" class="mt-1 block w-full px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Enter new password">
                                 <button id="change-password-btn" class="w-full py-2 px-4 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-offset-2">
                                     Change Password
                                 </button>
@@ -349,18 +341,7 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Custom Confirmation Modal (hidden by default) -->
-    <div id="confirmation-modal" class="modal-overlay hidden">
-        <div class="modal-box shadow-2xl">
-            <h3 id="modal-title" class="text-xl font-bold mb-4 text-slate-800">Confirmation</h3>
-            <p id="modal-message" class="text-slate-600 mb-6">Are you sure?</p>
-            <div class="flex justify-center space-x-4">
-                <button id="modal-confirm-btn" class="py-2 px-6 bg-emerald-500 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-600 transition-colors duration-200">Yes</button>
-                <button id="modal-cancel-btn" class="py-2 px-6 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">No</button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -375,6 +356,9 @@
                 isCardBlocked: false,
                 cardNumber: '1234-5678-9012-3456',
                 profilePicture: null,
+                dailyLimit: null,
+                spentToday: 0,
+                lastSpendingDate: null,
             },
             {
                 username: 'jane',
@@ -385,6 +369,9 @@
                 isCardBlocked: false,
                 cardNumber: '9876-5432-1098-7654',
                 profilePicture: null,
+                dailyLimit: null,
+                spentToday: 0,
+                lastSpendingDate: null,
             },
             {
                 username: 'peter',
@@ -395,6 +382,9 @@
                 isCardBlocked: false,
                 cardNumber: '1111-2222-3333-4444',
                 profilePicture: null,
+                dailyLimit: null,
+                spentToday: 0,
+                lastSpendingDate: null,
             },
             {
                 username: 'mary',
@@ -405,6 +395,9 @@
                 isCardBlocked: false,
                 cardNumber: '5555-6666-7777-8888',
                 profilePicture: null,
+                dailyLimit: 200,
+                spentToday: 0,
+                lastSpendingDate: null,
             }
         ];
 
@@ -413,6 +406,29 @@
             { code: 'WELCOME50', prize: 50.00, usedBy: [], expirationDate: null },
             { code: 'FREE10', prize: 10.00, usedBy: [], expirationDate: null },
         ];
+        
+        // Custom Confirmation Modal
+        const confirmationModal = document.createElement('div');
+        confirmationModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center hidden';
+        confirmationModal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <h3 id="modal-title" class="text-lg leading-6 font-medium text-gray-900"></h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p id="modal-body" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button id="modal-confirm-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            OK
+                        </button>
+                        <button id="modal-cancel-btn" class="mt-2 px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmationModal);
 
         let currentUser = null;
         let selectedUserForAdmin = null;
@@ -443,6 +459,12 @@
         const changePasswordBtn = document.getElementById('change-password-btn');
         const adminUserTransactions = document.getElementById('admin-user-transactions');
         
+        // Admin Daily Limit Elements
+        const currentLimitText = document.getElementById('current-limit-text');
+        const dailyLimitInput = document.getElementById('daily-limit-input');
+        const setDailyLimitBtn = document.getElementById('set-daily-limit-btn');
+        const clearDailyLimitBtn = document.getElementById('clear-daily-limit-btn');
+
         // Admin Redeem Code Elements
         const createRedeemForm = document.getElementById('create-redeem-form');
         const newRedeemCodeName = document.getElementById('new-redeem-code-name');
@@ -479,11 +501,12 @@
         const backToDashboardFromRedeemBtn = document.getElementById('back-to-dashboard-from-redeem-btn');
         const backToDashboardFromAdminRedeemBtn = document.getElementById('back-to-dashboard-from-admin-redeem-btn'); // New Admin Back button
         
-        // Confirmation Modal Elements
-        const confirmationModal = document.getElementById('confirmation-modal');
-        const modalMessage = document.getElementById('modal-message');
+        // Modal elements
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
 
         // Helper function to show a temporary message
         function showMessage(message, type = 'success') {
@@ -500,23 +523,28 @@
             }, 5000);
         }
 
-        // Custom Confirmation Modal function
-        function showConfirmationModal(message, onConfirm) {
-            modalMessage.textContent = message;
+        // Custom modal to replace alerts
+        const showModal = (title, body, onConfirm, onCancel) => {
+            modalTitle.textContent = title;
+            modalBody.textContent = body;
             confirmationModal.classList.remove('hidden');
 
-            // Clear previous listeners to prevent multiple triggers
-            modalConfirmBtn.onclick = null;
-            modalCancelBtn.onclick = null;
+            const confirmHandler = () => {
+                confirmationModal.classList.add('hidden');
+                if (onConfirm) onConfirm();
+                modalConfirmBtn.removeEventListener('click', confirmHandler);
+                modalCancelBtn.removeEventListener('click', cancelHandler);
+            };
+            const cancelHandler = () => {
+                confirmationModal.classList.add('hidden');
+                if (onCancel) onCancel();
+                modalConfirmBtn.removeEventListener('click', confirmHandler);
+                modalCancelBtn.removeEventListener('click', cancelHandler);
+            };
 
-            modalConfirmBtn.onclick = () => {
-                confirmationModal.classList.add('hidden');
-                onConfirm();
-            };
-            modalCancelBtn.onclick = () => {
-                confirmationModal.classList.add('hidden');
-            };
-        }
+            modalConfirmBtn.addEventListener('click', confirmHandler);
+            modalCancelBtn.addEventListener('click', cancelHandler);
+        };
         
         // Function to generate a random 16-digit card number with dashes
         function generateCardNumber() {
@@ -565,6 +593,15 @@
             // Add click listener to the list container
             userList.addEventListener('click', handleUserSelection);
         }
+        
+        // Helper function to check and reset daily spent amount
+        function checkAndResetDailySpent(user) {
+            const today = new Date().toDateString();
+            if (user.lastSpendingDate !== today) {
+                user.spentToday = 0;
+                user.lastSpendingDate = today;
+            }
+        }
 
         // Handle user selection in the admin list
         function handleUserSelection(e) {
@@ -573,6 +610,7 @@
                 const username = userItem.dataset.username;
                 selectedUserForAdmin = accounts.find(acc => acc.username === username);
                 if (selectedUserForAdmin) {
+                    checkAndResetDailySpent(selectedUserForAdmin);
                     manageUsersListView.style.display = 'none';
                     manageUserView.style.display = 'block';
                     updateSelectedUserView();
@@ -587,6 +625,8 @@
             manageUserTitle.textContent = `Manage ${selectedUserForAdmin.username}`;
             
             const cardStatus = selectedUserForAdmin.isCardBlocked ? 'Blocked' : 'Active';
+            const limitStatus = selectedUserForAdmin.dailyLimit !== null ? `$${selectedUserForAdmin.dailyLimit.toFixed(2)}` : 'No Limit';
+            const spentStatus = selectedUserForAdmin.dailyLimit !== null ? `$${selectedUserForAdmin.spentToday.toFixed(2)} of $${selectedUserForAdmin.dailyLimit.toFixed(2)}` : 'N/A';
 
             selectedUserDetails.innerHTML = `
                 <p class="text-md font-medium text-slate-600">Username: <span class="text-slate-800">${selectedUserForAdmin.username}</span></p>
@@ -594,9 +634,17 @@
                 <p class="text-md font-medium text-slate-600">Balance: <span class="text-slate-800">$${selectedUserForAdmin.balance.toFixed(2)}</span></p>
                 <p class="text-md font-medium text-slate-600">Card Number: <span class="text-slate-800">${selectedUserForAdmin.cardNumber}</span></p>
                 <p class="text-md font-medium text-slate-600">Card Status: <span class="${selectedUserForAdmin.isCardBlocked ? 'text-red-600' : 'text-emerald-600'}">${cardStatus}</span></p>
+                <p class="text-md font-medium text-slate-600">Daily Limit: <span class="text-slate-800">${limitStatus}</span></p>
+                <p class="text-md font-medium text-slate-600">Spent Today: <span class="text-slate-800">${spentStatus}</span></p>
             `;
 
             toggleCardBtn.textContent = selectedUserForAdmin.isCardBlocked ? 'Unblock Card' : 'Block Card';
+            dailyLimitInput.value = selectedUserForAdmin.dailyLimit;
+            
+            // Update the text for current daily limit
+            currentLimitText.textContent = selectedUserForAdmin.dailyLimit !== null 
+                ? `Current Limit: $${selectedUserForAdmin.dailyLimit.toFixed(2)}`
+                : 'No daily spending limit is set.';
 
             adminUserTransactions.innerHTML = '';
             const sortedTransactions = [...selectedUserForAdmin.transactions].sort((a, b) => b.timestamp - a.timestamp);
@@ -676,6 +724,8 @@
         // Function to update the dashboard UI with current user data
         function updateDashboard() {
             if (!currentUser) return;
+            
+            checkAndResetDailySpent(currentUser);
 
             welcomeName.textContent = currentUser.username.charAt(0).toUpperCase() + currentUser.username.slice(1);
             currentBalance.textContent = currentUser.balance === Infinity ? '∞' : currentUser.balance.toFixed(2);
@@ -925,12 +975,26 @@
             const recipientUsername = e.target['recipient-username'].value.toLowerCase();
             const transferAmount = parseFloat(e.target['transfer-amount'].value);
             const recipientAccount = accounts.find(acc => acc.username === recipientUsername);
+
             if (!recipientAccount) { showMessage('Recipient not found.', 'error'); return; }
             if (recipientUsername === currentUser.username) { showMessage('You cannot transfer money to yourself.', 'error'); return; }
             if (!currentUser.isAdmin && transferAmount > currentUser.balance) { showMessage('Insufficient funds.', 'error'); return; }
+            
+            // Check daily spending limit
+            if (currentUser.dailyLimit !== null) {
+                checkAndResetDailySpent(currentUser);
+                if (currentUser.spentToday + transferAmount > currentUser.dailyLimit) {
+                    showMessage(`You have exceeded your daily spending limit of $${currentUser.dailyLimit.toFixed(2)}.`, 'error');
+                    return;
+                }
+            }
+
             showMessage('Processing transfer...', 'success');
             setTimeout(() => {
-                if (!currentUser.isAdmin) { currentUser.balance -= transferAmount; }
+                if (!currentUser.isAdmin) { 
+                    currentUser.balance -= transferAmount; 
+                    currentUser.spentToday += transferAmount;
+                }
                 recipientAccount.balance += transferAmount;
                 const now = Date.now();
                 currentUser.transactions.push({ type: 'debit', amount: transferAmount, description: `Transfer to ${recipientAccount.username}`, timestamp: now });
@@ -947,7 +1011,7 @@
             const newPassword = e.target['new-password'].value;
             const userExists = accounts.some(acc => acc.username === newUsername);
             if (userExists) { showMessage('Username already exists. Please choose a different one.', 'error'); return; }
-            const newUser = { username: newUsername, password: newPassword, balance: 0.00, transactions: [], isAdmin: false, isCardBlocked: false, cardNumber: generateCardNumber(), profilePicture: null, };
+            const newUser = { username: newUsername, password: newPassword, balance: 0.00, transactions: [], isAdmin: false, isCardBlocked: false, cardNumber: generateCardNumber(), profilePicture: null, dailyLimit: null, spentToday: 0, lastSpendingDate: null, };
             accounts.push(newUser);
             addUserForm.reset();
             updateDashboard();
@@ -959,32 +1023,47 @@
             manageUsersListView.style.display = 'block';
             renderUserList();
         });
+        
+        // Updated event listener for Delete User with a confirmation modal
         deleteUserBtn.addEventListener('click', () => {
-             if (!selectedUserForAdmin) return;
-             showConfirmationModal(
-                 `Are you sure you want to delete the account for "${selectedUserForAdmin.username}"? This action cannot be undone.`,
-                 () => {
-                     const userIndex = accounts.findIndex(acc => acc.username === selectedUserForAdmin.username);
-                     accounts.splice(userIndex, 1);
-                     backToUsersBtn.click();
-                     showMessage(`User "${selectedUserForAdmin.username}" has been deleted.`, 'success');
-                 }
-             );
+            if (!selectedUserForAdmin) return;
+            showModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete the account for "${selectedUserForAdmin.username}"? This action cannot be undone.`,
+                () => {
+                    // Add a safeguard in the confirmation handler
+                    if (!selectedUserForAdmin) { return; } 
+                    const userIndex = accounts.findIndex(acc => acc.username === selectedUserForAdmin.username);
+                    if (userIndex !== -1) {
+                        accounts.splice(userIndex, 1);
+                        backToUsersBtn.click();
+                        showMessage(`User "${selectedUserForAdmin.username}" has been deleted.`, 'success');
+                    }
+                },
+                null // No cancel handler needed for this case
+            );
         });
+        
+        // Updated event listener for Toggle Card with a confirmation modal
         toggleCardBtn.addEventListener('click', () => {
             if (!selectedUserForAdmin) return;
             const action = selectedUserForAdmin.isCardBlocked ? 'unblock' : 'block';
-            showConfirmationModal(
+            showModal(
+                'Confirm Card Status Change',
                 `Are you sure you want to ${action} the card for "${selectedUserForAdmin.username}"?`,
                 () => {
+                    // Add a safeguard in the confirmation handler
+                    if (!selectedUserForAdmin) { return; }
                     selectedUserForAdmin.isCardBlocked = !selectedUserForAdmin.isCardBlocked;
                     updateSelectedUserView();
-                    showMessage(`Card for "${selectedUserForAdmin.username}" has been ${action}ed.`, 'success');
-                }
+                    showMessage(`Card for "${selectedUserForAdmin.username}" has been ${selectedUserForAdmin.isCardBlocked ? 'blocked' : 'unblocked'}.`, 'success');
+                },
+                null
             );
         });
+        
         addFundsBtn.addEventListener('click', () => {
-            if (!selectedUserForAdmin) return;
+            if (!selectedUserForAdmin) { return; }
             const amount = parseFloat(fundsAmountInput.value);
             if (isNaN(amount) || amount <= 0) { showMessage('Please enter a valid positive amount.', 'error'); return; }
             selectedUserForAdmin.balance += amount;
@@ -994,7 +1073,7 @@
             showMessage(`$${amount.toFixed(2)} has been added to ${selectedUserForAdmin.username}'s account.`, 'success');
         });
         removeFundsBtn.addEventListener('click', () => {
-            if (!selectedUserForAdmin) return;
+            if (!selectedUserForAdmin) { return; }
             const amount = parseFloat(fundsAmountInput.value);
             if (isNaN(amount) || amount <= 0) { showMessage('Please enter a valid positive amount.', 'error'); return; }
             selectedUserForAdmin.balance -= amount;
@@ -1004,8 +1083,31 @@
             fundsAmountInput.value = '';
             showMessage(`$${amount.toFixed(2)} has been removed from ${selectedUserForAdmin.username}'s account.`, 'success');
         });
+        
+        // New event listener for setting daily limit
+        setDailyLimitBtn.addEventListener('click', () => {
+            if (!selectedUserForAdmin) { return; }
+            const newLimit = parseFloat(dailyLimitInput.value);
+            if (isNaN(newLimit) || newLimit <= 0) {
+                showMessage('Please enter a valid positive limit.', 'error');
+                return;
+            }
+            selectedUserForAdmin.dailyLimit = newLimit;
+            updateSelectedUserView();
+            dailyLimitInput.value = '';
+            showMessage(`Daily spending limit for "${selectedUserForAdmin.username}" has been set to $${newLimit.toFixed(2)}.`, 'success');
+        });
+        
+        // New event listener for clearing daily limit
+        clearDailyLimitBtn.addEventListener('click', () => {
+            if (!selectedUserForAdmin) { return; }
+            selectedUserForAdmin.dailyLimit = null;
+            updateSelectedUserView();
+            showMessage(`Daily spending limit for "${selectedUserForAdmin.username}" has been cleared.`, 'success');
+        });
+        
         changePasswordBtn.addEventListener('click', () => {
-            if (!selectedUserForAdmin) return;
+            if (!selectedUserForAdmin) { return; }
             const newPassword = newPasswordInput.value;
             if (newPassword.trim() === '') { showMessage('New password cannot be empty.', 'error'); return; }
             selectedUserForAdmin.password = newPassword;
